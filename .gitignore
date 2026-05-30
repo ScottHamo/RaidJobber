@@ -1,0 +1,8 @@
+*.zip
+*.bak
+*.tmp
+*.log
+
+WTF/
+Cache/
+Interface/AddOns/*/SavedVariables/

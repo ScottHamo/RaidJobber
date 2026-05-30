@@ -1,0 +1,9 @@
+## Interface: 20505
+## Title: RaidJobber
+## Notes: Scan your raid and assign boss-specific jobs for TBC Anniversary.
+## Author: Scott + Codex
+## Version: 0.1.0
+## SavedVariables: RaidJobberDB
+
+RaidJobber_Profiles.lua
+RaidJobber.lua
