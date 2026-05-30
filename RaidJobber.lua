@@ -177,6 +177,16 @@ local function GetMemberLabel(playerName, member)
     return (member.role or "Unknown") .. " " .. (CLASS_DISPLAY[member.class] or member.class or "")
 end
 
+local function GetPlayerGuildName()
+    local guildName = GetGuildInfo and GetGuildInfo("player")
+    return guildName
+end
+
+local function IsSameGuildMember(member)
+    local playerGuild = GetPlayerGuildName()
+    return playerGuild and playerGuild ~= "" and member and member.guild == playerGuild
+end
+
 local function TextHasAny(text, values)
     text = string.lower(text or "")
 
@@ -201,6 +211,10 @@ local function ScoreCandidate(job, playerName, member, usedPlayers)
     local jobRole = string.lower(job.role or "")
     local jobText = string.lower((job.slot or "") .. " " .. (job.text or ""))
     local score = 0
+
+    if IsSameGuildMember(member) then
+        score = score + 12
+    end
 
     if TextHasAny(label, { jobRole }) then
         score = score + 20
@@ -343,21 +357,21 @@ local function SendRaidWarningLines(lines)
 end
 
 local TEST_RAID_MEMBERS = {
-    { name = "Aurelion", class = "PALADIN", role = "Healer", override = "Holy Paladin", subgroup = 1 },
-    { name = "Brightward", class = "PALADIN", role = "Healer", override = "Holy Paladin", subgroup = 1 },
-    { name = "Stoneguard", class = "WARRIOR", role = "Tank", override = "Protection Warrior", subgroup = 1 },
-    { name = "Ironbark", class = "DRUID", role = "Tank", override = "Feral Druid Tank", subgroup = 1 },
-    { name = "Lightshield", class = "PALADIN", role = "Tank", override = "Protection Paladin", subgroup = 1 },
-    { name = "Willowmend", class = "DRUID", role = "Healer", override = "Restoration Druid", subgroup = 2 },
-    { name = "Tidecaller", class = "SHAMAN", role = "Healer", override = "Restoration Shaman", subgroup = 2 },
-    { name = "Mindlace", class = "PRIEST", role = "Healer", override = "Holy Priest", subgroup = 2 },
-    { name = "Shadowcoil", class = "WARLOCK", role = "Ranged", override = "Fire Resistance Warlock", subgroup = 3 },
-    { name = "Felbrand", class = "WARLOCK", role = "Ranged", override = "Destruction Warlock", subgroup = 3 },
-    { name = "Arrowfall", class = "HUNTER", role = "Ranged", override = "Hunter", subgroup = 3 },
-    { name = "Frostwake", class = "MAGE", role = "Ranged", override = "Frost Mage", subgroup = 3 },
-    { name = "Kickshift", class = "ROGUE", role = "Melee", override = "Rogue", subgroup = 4 },
-    { name = "Stormkick", class = "SHAMAN", role = "Melee", override = "Enhancement Shaman", subgroup = 4 },
-    { name = "Bladecall", class = "WARRIOR", role = "Melee", override = "DPS Warrior", subgroup = 4 },
+    { name = "Aurelion", class = "PALADIN", role = "Healer", override = "Holy Paladin", guild = "RaidJobber Guild", subgroup = 1 },
+    { name = "Brightward", class = "PALADIN", role = "Healer", override = "Holy Paladin", guild = "RaidJobber Guild", subgroup = 1 },
+    { name = "Stoneguard", class = "WARRIOR", role = "Tank", override = "Protection Warrior", guild = "RaidJobber Guild", subgroup = 1 },
+    { name = "Ironbark", class = "DRUID", role = "Tank", override = "Feral Druid Tank", guild = "RaidJobber Guild", subgroup = 1 },
+    { name = "Lightshield", class = "PALADIN", role = "Tank", override = "Protection Paladin", guild = "Friends Of RaidJobber", subgroup = 1 },
+    { name = "Willowmend", class = "DRUID", role = "Healer", override = "Restoration Druid", guild = "RaidJobber Guild", subgroup = 2 },
+    { name = "Tidecaller", class = "SHAMAN", role = "Healer", override = "Restoration Shaman", guild = "Friends Of RaidJobber", subgroup = 2 },
+    { name = "Mindlace", class = "PRIEST", role = "Healer", override = "Holy Priest", guild = "RaidJobber Guild", subgroup = 2 },
+    { name = "Shadowcoil", class = "WARLOCK", role = "Ranged", override = "Fire Resistance Warlock", guild = "RaidJobber Guild", subgroup = 3 },
+    { name = "Felbrand", class = "WARLOCK", role = "Ranged", override = "Destruction Warlock", guild = "Friends Of RaidJobber", subgroup = 3 },
+    { name = "Arrowfall", class = "HUNTER", role = "Ranged", override = "Hunter", guild = "RaidJobber Guild", subgroup = 3 },
+    { name = "Frostwake", class = "MAGE", role = "Ranged", override = "Frost Mage", guild = "Friends Of RaidJobber", subgroup = 3 },
+    { name = "Kickshift", class = "ROGUE", role = "Melee", override = "Rogue", guild = "RaidJobber Guild", subgroup = 4 },
+    { name = "Stormkick", class = "SHAMAN", role = "Melee", override = "Enhancement Shaman", guild = "Friends Of RaidJobber", subgroup = 4 },
+    { name = "Bladecall", class = "WARRIOR", role = "Melee", override = "DPS Warrior", guild = "RaidJobber Guild", subgroup = 4 },
 }
 
 local function GetSortedJobNames(bossJobs)
@@ -418,9 +432,11 @@ function RJ:ScanRaid()
 
         if name and classFileName then
             local fullName = realm and realm ~= "" and (name .. "-" .. realm) or name
+            local guildName = GetGuildInfo and GetGuildInfo(unit)
             RaidJobberDB.raids[instanceKey].members[fullName] = {
                 class = classFileName,
                 role = GuessRole(unit, classFileName),
+                guild = guildName,
                 subgroup = select(3, GetRaidRosterInfo(index)),
             }
         end
@@ -443,10 +459,12 @@ function RJ:LoadTestRaid()
         members = {},
     }
 
+    local playerGuild = GetPlayerGuildName() or "RaidJobber Guild"
     for _, member in ipairs(TEST_RAID_MEMBERS) do
         RaidJobberDB.raids[instanceKey].members[member.name] = {
             class = member.class,
             role = member.role,
+            guild = member.guild == "RaidJobber Guild" and playerGuild or member.guild,
             subgroup = member.subgroup,
         }
         RaidJobberDB.overrides[string.lower(member.name)] = member.override
@@ -1020,7 +1038,8 @@ RefreshUI = function()
         for _, playerName in ipairs(names) do
             if UI.raidLines[row] then
                 local member = raid.members[playerName]
-                UI.raidLines[row]:SetText(playerName .. "  -  " .. GetMemberLabel(playerName, member))
+                local guildTag = IsSameGuildMember(member) and " *" or ""
+                UI.raidLines[row]:SetText(playerName .. guildTag .. "  -  " .. GetMemberLabel(playerName, member))
             end
             row = row + 1
         end

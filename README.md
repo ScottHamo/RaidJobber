@@ -69,7 +69,7 @@ Use the raid dropdown in `/rj ui` to switch profiles without typing commands. Th
 
 Run `/rj scan`, optionally add role/spec hints like `/rj role Playername = Holy Paladin`, then run `/rj suggest hydross` to auto-fill that boss from the scanned raid.
 
-The suggestion engine prefers sensible candidates for common raid jobs. For example, Holy Paladins are weighted heavily for tank-healing jobs, Hunters for Misdirection jobs, Warlocks for ranged tanking jobs, melee with interrupts for interrupt jobs, and ranged control classes for kiting/slow jobs.
+The suggestion engine prefers sensible candidates for common raid jobs. For example, Holy Paladins are weighted heavily for tank-healing jobs, Hunters for Misdirection jobs, Warlocks for ranged tanking jobs, melee with interrupts for interrupt jobs, and ranged control classes for kiting/slow jobs. It also gives a small preference to raiders from your own guild; same-guild raiders are marked with `*` in the UI raid list.
 
 ## Test Mode
 
