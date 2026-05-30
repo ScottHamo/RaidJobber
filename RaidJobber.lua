@@ -44,6 +44,18 @@ local CLASS_DISPLAY = {
     WARRIOR = "Warrior",
 }
 
+local RAID_MARKERS = {
+    star = 1,
+    circle = 2,
+    diamond = 3,
+    triangle = 4,
+    moon = 5,
+    square = 6,
+    cross = 7,
+    x = 7,
+    skull = 8,
+}
+
 local GetRaidSize
 local RefreshUI
 
@@ -356,6 +368,15 @@ local function SendRaidWarningLines(lines)
     return true
 end
 
+local function GetMarkerIndex(markerName)
+    markerName = string.lower(Trim(markerName))
+    if markerName == "clear" or markerName == "none" then
+        return 0
+    end
+
+    return RAID_MARKERS[markerName]
+end
+
 local TEST_RAID_MEMBERS = {
     { name = "Aurelion", class = "PALADIN", role = "Healer", override = "Holy Paladin", guild = "RaidJobber Guild", subgroup = 1 },
     { name = "Brightward", class = "PALADIN", role = "Healer", override = "Holy Paladin", guild = "RaidJobber Guild", subgroup = 1 },
@@ -488,6 +509,43 @@ function RJ:SetTestMode(enabled)
     if RefreshUI then
         RefreshUI()
     end
+end
+
+function RJ:SetRaidMarker(markerName, unit)
+    EnsureDB()
+
+    unit = Trim(unit)
+    if unit == "" then
+        unit = "target"
+    end
+
+    local markerIndex = GetMarkerIndex(markerName)
+    if not markerIndex then
+        Print("Unknown marker. Use skull, cross, square, moon, triangle, diamond, circle, star, or clear.")
+        return
+    end
+
+    if not UnitExists or not UnitExists(unit) then
+        Print("No unit found for " .. unit .. ". Target something first or use target/focus/mouseover.")
+        return
+    end
+
+    if not SetRaidTarget then
+        Print("Raid markers are not available in this client.")
+        return
+    end
+
+    SetRaidTarget(unit, markerIndex)
+
+    if markerIndex == 0 then
+        Print("Cleared raid marker from " .. unit .. ".")
+    else
+        Print("Set " .. markerName .. " on " .. unit .. ".")
+    end
+end
+
+function RJ:MarkTarget(markerName)
+    RJ:SetRaidMarker(markerName, "target")
 end
 
 function RJ:AssignJob(bossName, playerName, jobText)
@@ -1190,7 +1248,7 @@ local function CreateRaidJobberUI()
     UI.assignPlayer:SetPoint("TOPLEFT", 82, -170)
     UI.assignPlayer:SetText("Player")
 
-    UI.assignText = CreateEditBox(frame, 280)
+    UI.assignText = CreateEditBox(frame, 220)
     UI.assignText:SetPoint("LEFT", UI.assignPlayer, "RIGHT", 14, 0)
     UI.assignText:SetText("Tank healer")
 
@@ -1198,6 +1256,34 @@ local function CreateRaidJobberUI()
         RJ:AssignJob(UI.selectedBoss, UI.assignPlayer:GetText(), UI.assignText:GetText())
     end)
     assign:SetPoint("LEFT", UI.assignText, "RIGHT", 8, 0)
+
+    local markerLabel = CreateLabel(frame, "Mark target", "small")
+    markerLabel:SetPoint("TOPLEFT", 500, -148)
+
+    local skull = CreateButton(frame, "Skull", 48, 22, function()
+        RJ:MarkTarget("skull")
+    end)
+    skull:SetPoint("TOPLEFT", 560, -142)
+
+    local cross = CreateButton(frame, "Cross", 48, 22, function()
+        RJ:MarkTarget("cross")
+    end)
+    cross:SetPoint("LEFT", skull, "RIGHT", 6, 0)
+
+    local clearMarker = CreateButton(frame, "Clear", 48, 22, function()
+        RJ:MarkTarget("clear")
+    end)
+    clearMarker:SetPoint("LEFT", cross, "RIGHT", 6, 0)
+
+    local square = CreateButton(frame, "Square", 54, 22, function()
+        RJ:MarkTarget("square")
+    end)
+    square:SetPoint("TOPLEFT", 560, -170)
+
+    local moon = CreateButton(frame, "Moon", 48, 22, function()
+        RJ:MarkTarget("moon")
+    end)
+    moon:SetPoint("LEFT", square, "RIGHT", 6, 0)
 
     local jobsTitle = CreateLabel(frame, "Assignments", nil)
     jobsTitle:SetPoint("TOPLEFT", 24, -214)
@@ -1357,6 +1443,7 @@ local function ShowHelp()
     Print("/rj minimap - show the minimap button")
     Print("/rj suggest [boss] - auto-fill boss jobs from scanned raid")
     Print("/rj role player = Holy Paladin - add a manual role/spec hint")
+    Print("/rj mark skull target - set a raid marker on target/focus/mouseover")
     Print("/rj test on|off|raid - test mode and sample raid")
     Print("/rj show [boss] - show jobs for a boss, or General")
     Print("/rj rw [boss] - announce jobs in raid warning")
@@ -1394,6 +1481,11 @@ local function HandleTest(input)
     end
 end
 
+local function HandleMark(input)
+    local markerName, unit = string.match(input, "^mark%s+([^%s]+)%s*(.*)$")
+    RJ:SetRaidMarker(markerName, unit)
+end
+
 SLASH_RAIDJOBBER1 = "/raidjobber"
 SLASH_RAIDJOBBER2 = "/rj"
 SlashCmdList.RAIDJOBBER = function(input)
@@ -1419,6 +1511,8 @@ SlashCmdList.RAIDJOBBER = function(input)
         RJ:SuggestJobs(Trim(string.gsub(input, "^suggest", "")))
     elseif string.find(input, "^role%s+") then
         HandleRole(input)
+    elseif string.find(input, "^mark%s+") then
+        HandleMark(input)
     elseif string.find(input, "^test") then
         HandleTest(input)
     elseif string.find(input, "^assign%s+") then
