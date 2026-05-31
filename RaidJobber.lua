@@ -9,7 +9,7 @@ local DEFAULT_DB = {
     overrides = {},
     testMode = false,
     minimap = {
-        angle = 225,
+        angle = 45,
         hide = false,
     },
 }
@@ -68,6 +68,9 @@ local function EnsureDB()
     end
 
     RaidJobberDB.minimap.angle = RaidJobberDB.minimap.angle or DEFAULT_DB.minimap.angle
+    if RaidJobberDB.minimap.angle == 225 then
+        RaidJobberDB.minimap.angle = DEFAULT_DB.minimap.angle
+    end
     RaidJobberDB.minimap.hide = RaidJobberDB.minimap.hide or false
 end
 
@@ -736,7 +739,7 @@ local function PositionMinimapButton()
 
     EnsureDB()
 
-    local angle = RaidJobberDB.minimap.angle or 225
+    local angle = RaidJobberDB.minimap.angle or DEFAULT_DB.minimap.angle
     local radians = math.rad(angle)
     local radius = 80
     UI.minimapButton:ClearAllPoints()
@@ -1276,16 +1279,21 @@ local function CreateMinimapButton()
     button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     button:RegisterForDrag("LeftButton")
 
-    local icon = button:CreateTexture(nil, "BACKGROUND")
+    local background = button:CreateTexture(nil, "BACKGROUND")
+    background:SetSize(20, 20)
+    background:SetPoint("CENTER")
+    background:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
+
+    local icon = button:CreateTexture(nil, "ARTWORK")
     button.icon = icon
-    icon:SetSize(20, 20)
+    icon:SetSize(18, 18)
     icon:SetPoint("CENTER")
     icon:SetTexture("Interface\\Icons\\INV_Misc_Note_01")
 
-    local border = button:CreateTexture(nil, "OVERLAY")
-    border:SetSize(54, 54)
-    border:SetPoint("CENTER", 0, 0)
-    border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+    local overlay = button:CreateTexture(nil, "OVERLAY")
+    overlay:SetSize(53, 53)
+    overlay:SetPoint("TOPLEFT")
+    overlay:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
 
     button:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 
