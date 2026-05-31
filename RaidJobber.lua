@@ -389,6 +389,46 @@ local function GetSortedJobNames(bossJobs)
     return names
 end
 
+local function IsWhisperableAssignee(playerName)
+    playerName = Trim(playerName)
+    if playerName == "" then
+        return false
+    end
+
+    return string.sub(playerName, 1, 1) ~= "["
+end
+
+local function WhisperAssignment(playerName, bossName, jobText)
+    if not IsWhisperableAssignee(playerName) then
+        return
+    end
+
+    SendChatMessage("RaidJobber - " .. bossName .. ": " .. jobText, "WHISPER", nil, playerName)
+end
+
+local function WhisperAssignmentsAfterDelay(bossName, bossJobs, delaySeconds)
+    if not bossJobs or not next(bossJobs) then
+        return
+    end
+
+    local whisperIndex = 0
+    for _, playerName in ipairs(GetSortedJobNames(bossJobs)) do
+        local jobText = bossJobs[playerName]
+        if IsWhisperableAssignee(playerName) then
+            whisperIndex = whisperIndex + 1
+            local function whisperLine()
+                WhisperAssignment(playerName, bossName, jobText)
+            end
+
+            if C_Timer and C_Timer.After then
+                C_Timer.After(delaySeconds + ((whisperIndex - 1) * 0.35), whisperLine)
+            else
+                WhisperAssignment(playerName, bossName, jobText)
+            end
+        end
+    end
+end
+
 local function GuessRole(unit, classFileName)
     local assignedRole = UnitGroupRolesAssigned and UnitGroupRolesAssigned(unit)
     if assignedRole == "TANK" then
@@ -578,7 +618,9 @@ function RJ:AnnounceJobs(bossName)
         table.insert(lines, entry)
     end
 
-    SendRaidWarningLines(lines)
+    if SendRaidWarningLines(lines) then
+        WhisperAssignmentsAfterDelay(bossKey, bossJobs, table.getn(lines) * 0.45 + 0.5)
+    end
 end
 
 function RJ:LoadProfile(profileName)
