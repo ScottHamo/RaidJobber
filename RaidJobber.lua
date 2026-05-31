@@ -44,18 +44,6 @@ local CLASS_DISPLAY = {
     WARRIOR = "Warrior",
 }
 
-local RAID_MARKERS = {
-    star = 1,
-    circle = 2,
-    diamond = 3,
-    triangle = 4,
-    moon = 5,
-    square = 6,
-    cross = 7,
-    x = 7,
-    skull = 8,
-}
-
 local GetRaidSize
 local RefreshUI
 local UI
@@ -369,17 +357,6 @@ local function SendRaidWarningLines(lines)
     return true
 end
 
-local function GetMarkerToken(markerName)
-    markerName = string.lower(Trim(markerName))
-    if string.sub(markerName, 1, 1) == "{" and string.sub(markerName, -1) == "}" then
-        markerName = string.sub(markerName, 2, -2)
-    end
-
-    if RAID_MARKERS[markerName] then
-        return "{" .. markerName .. "}"
-    end
-end
-
 local TEST_RAID_MEMBERS = {
     { name = "Aurelion", class = "PALADIN", role = "Healer", override = "Holy Paladin", guild = "RaidJobber Guild", subgroup = 1 },
     { name = "Brightward", class = "PALADIN", role = "Healer", override = "Holy Paladin", guild = "RaidJobber Guild", subgroup = 1 },
@@ -511,21 +488,6 @@ function RJ:SetTestMode(enabled)
     end
     if RefreshUI then
         RefreshUI()
-    end
-end
-
-function RJ:SetQuickAddMarker(markerName)
-    local token = GetMarkerToken(markerName)
-    if not token then
-        Print("Unknown marker. Use skull, cross, square, moon, triangle, diamond, circle, or star.")
-        return
-    end
-
-    if UI and UI.assignPlayer then
-        UI.assignPlayer:SetText(token)
-        Print("Quick add assignee set to " .. token .. ".")
-    else
-        Print("Use " .. token .. " as the assignee in Quick add or /rj assign.")
     end
 end
 
@@ -777,6 +739,7 @@ local function PositionMinimapButton()
     local angle = RaidJobberDB.minimap.angle or 225
     local radians = math.rad(angle)
     local radius = 80
+    UI.minimapButton:ClearAllPoints()
     UI.minimapButton:SetPoint("CENTER", Minimap, "CENTER", math.cos(radians) * radius, math.sin(radians) * radius)
 end
 
@@ -1238,34 +1201,6 @@ local function CreateRaidJobberUI()
     end)
     assign:SetPoint("LEFT", UI.assignText, "RIGHT", 8, 0)
 
-    local markerLabel = CreateLabel(frame, "Marker job", "small")
-    markerLabel:SetPoint("TOPLEFT", 500, -148)
-
-    local skull = CreateButton(frame, "Skull", 48, 22, function()
-        RJ:SetQuickAddMarker("skull")
-    end)
-    skull:SetPoint("TOPLEFT", 560, -142)
-
-    local cross = CreateButton(frame, "Cross", 48, 22, function()
-        RJ:SetQuickAddMarker("cross")
-    end)
-    cross:SetPoint("LEFT", skull, "RIGHT", 6, 0)
-
-    local star = CreateButton(frame, "Star", 48, 22, function()
-        RJ:SetQuickAddMarker("star")
-    end)
-    star:SetPoint("LEFT", cross, "RIGHT", 6, 0)
-
-    local square = CreateButton(frame, "Square", 54, 22, function()
-        RJ:SetQuickAddMarker("square")
-    end)
-    square:SetPoint("TOPLEFT", 560, -170)
-
-    local moon = CreateButton(frame, "Moon", 48, 22, function()
-        RJ:SetQuickAddMarker("moon")
-    end)
-    moon:SetPoint("LEFT", square, "RIGHT", 6, 0)
-
     local jobsTitle = CreateLabel(frame, "Assignments", nil)
     jobsTitle:SetPoint("TOPLEFT", 24, -214)
 
@@ -1334,25 +1269,25 @@ local function CreateMinimapButton()
 
     local button = CreateFrame("Button", "RaidJobberMinimapButton", Minimap)
     UI.minimapButton = button
-    button:SetWidth(32)
-    button:SetHeight(32)
-    button:SetFrameStrata("MEDIUM")
+    button:SetSize(32, 32)
+    button:SetFrameStrata("HIGH")
+    button:SetFrameLevel((Minimap:GetFrameLevel() or 0) + 8)
     button:SetMovable(true)
     button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     button:RegisterForDrag("LeftButton")
 
     local icon = button:CreateTexture(nil, "BACKGROUND")
     button.icon = icon
-    icon:SetWidth(20)
-    icon:SetHeight(20)
+    icon:SetSize(20, 20)
     icon:SetPoint("CENTER")
     icon:SetTexture("Interface\\Icons\\INV_Misc_Note_01")
 
     local border = button:CreateTexture(nil, "OVERLAY")
-    border:SetWidth(54)
-    border:SetHeight(54)
+    border:SetSize(54, 54)
     border:SetPoint("CENTER", 0, 0)
     border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+
+    button:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 
     button:SetScript("OnClick", function(_, mouseButton)
         if mouseButton == "RightButton" then
@@ -1414,6 +1349,16 @@ function RJ:ShowMinimapButton()
     Print("Minimap button shown.")
 end
 
+function RJ:ResetMinimapButton()
+    EnsureDB()
+    RaidJobberDB.minimap.hide = false
+    RaidJobberDB.minimap.angle = DEFAULT_DB.minimap.angle
+    CreateMinimapButton()
+    UI.minimapButton:Show()
+    PositionMinimapButton()
+    Print("Minimap button reset.")
+end
+
 local function ShowHelp()
     Print("/rj scan - scan raid members and estimated roles")
     Print("/rj raid - show the last scan for this instance")
@@ -1422,9 +1367,9 @@ local function ShowHelp()
     Print("/rj load kara|gruul|magtheridon|ssc|tk|bt|hyjal|za|sunwell - load raid jobs")
     Print("/rj ui - open the in-game interface")
     Print("/rj minimap - show the minimap button")
+    Print("/rj minimap reset - reset minimap button position")
     Print("/rj suggest [boss] - auto-fill boss jobs from scanned raid")
     Print("/rj role player = Holy Paladin - add a manual role/spec hint")
-    Print("/rj marker skull - use {skull} as a job assignee")
     Print("/rj test on|off|raid - test mode and sample raid")
     Print("/rj show [boss] - show jobs for a boss, or General")
     Print("/rj rw [boss] - announce jobs in raid warning")
@@ -1462,16 +1407,6 @@ local function HandleTest(input)
     end
 end
 
-local function HandleMarker(input)
-    local markerName = string.match(input, "^marker%s+([^%s]+)$") or string.match(input, "^mark%s+([^%s]+)$")
-    if not markerName then
-        Print("Usage: /rj marker skull. For commands, use /rj assign boss = {skull}: Main target.")
-        return
-    end
-
-    RJ:SetQuickAddMarker(markerName)
-end
-
 SLASH_RAIDJOBBER1 = "/raidjobber"
 SLASH_RAIDJOBBER2 = "/rj"
 SlashCmdList.RAIDJOBBER = function(input)
@@ -1487,6 +1422,8 @@ SlashCmdList.RAIDJOBBER = function(input)
         RJ:ToggleUI()
     elseif input == "minimap" then
         RJ:ShowMinimapButton()
+    elseif input == "minimap reset" then
+        RJ:ResetMinimapButton()
     elseif input == "profiles" then
         RJ:ShowProfiles()
     elseif string.find(input, "^bosses%s+") then
@@ -1497,8 +1434,6 @@ SlashCmdList.RAIDJOBBER = function(input)
         RJ:SuggestJobs(Trim(string.gsub(input, "^suggest", "")))
     elseif string.find(input, "^role%s+") then
         HandleRole(input)
-    elseif string.find(input, "^marker%s+") or string.find(input, "^mark%s+") then
-        HandleMarker(input)
     elseif string.find(input, "^test") then
         HandleTest(input)
     elseif string.find(input, "^assign%s+") then

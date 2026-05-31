@@ -24,14 +24,13 @@ Then restart the game or run:
 /rj raid
 /rj ui
 /rj minimap
+/rj minimap reset
 /rj profiles
 /rj bosses bt
 /rj load bt
 /rj role Scott = Holy Paladin
 /rj suggest hydross
 /rj assign hydross = Scott: Frost resistance tank
-/rj assign hydross = {skull}: Main target
-/rj marker skull
 /rj show hydross
 /rj rw hydross
 /rj test raid
@@ -49,19 +48,9 @@ Open the in-game interface with:
 /rj ui
 ```
 
-The window lets you choose a raid profile, choose a boss from that raid, scan the raid, load the selected raid profile, generate suggested assignments, edit each job row directly, use Quick add for custom assignments, assign jobs to raid marker tokens, announce every assignment to raid warning, clear the selected boss, and save role/spec hints. Quick add entries appear in the main assignment table as `Custom` rows.
+The window lets you choose a raid profile, choose a boss from that raid, scan the raid, load the selected raid profile, generate suggested assignments, edit each job row directly, use Quick add for custom assignments, announce every assignment to raid warning, clear the selected boss, and save role/spec hints. Quick add entries appear in the main assignment table as `Custom` rows.
 
-Raid marker tokens can be used as assignees:
-
-```text
-/rj assign hydross = {skull}: Main target
-/rj assign hydross = {cross}: Off target
-/rj marker skull
-```
-
-The UI marker buttons fill the Quick add assignee with tokens like `{skull}`. The addon does not set raid markers on units; it stores and announces marker-based jobs.
-
-The addon also creates a minimap button. Left-click it to open the interface, drag it to reposition it, or right-click it to hide it. Use `/rj minimap` to show it again.
+The addon also creates a minimap button. Left-click it to open the interface, drag it to reposition it, or right-click it to hide it. Use `/rj minimap` to show it again, or `/rj minimap reset` to force it back to the default position.
 
 ## Raid Profiles
 
