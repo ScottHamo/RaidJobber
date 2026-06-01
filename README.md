@@ -74,8 +74,6 @@ Run `/rj scan`, optionally add role/spec hints like `/rj role Playername = Holy 
 
 The suggestion engine prefers sensible candidates for common raid jobs. For example, Holy Paladins are weighted heavily for tank-healing jobs, Hunters for Misdirection jobs, Warlocks for ranged tanking jobs, melee with interrupts for interrupt jobs, and ranged control classes for kiting/slow jobs. It also gives a small preference to raiders from your own guild; same-guild raiders are marked with `*` in the UI raid list.
 
-Lady Vashj has a custom assignment profile with four numbered areas, each expecting one melee, one healer, and one hunter-preferred ranged DPS. It also assigns a Holy Paladin to the middle with Righteous Fury, hunters to Phase 3 spore bats, and a strider kiter with preference Mage, then Shaman, then Hunter.
-
 ## Test Mode
 
 Use `/rj test raid` to load a sample raid and enable test mode. In test mode, `/rj rw boss` prints `[TEST RW]` lines to your local chat frame instead of sending real raid warnings. Outside test mode, `/rj rw boss` and the `Raid Warn` button send one raid warning for the header and one raid warning for each assignment.
