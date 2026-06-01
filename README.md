@@ -50,7 +50,7 @@ Open the in-game interface with:
 
 The window lets you choose a raid profile, choose a boss from that raid, scan the raid, load the selected raid profile, generate suggested assignments, edit each job row directly, announce assignments to raid warning, and clear the selected boss.
 
-When you use `Raid Warn` or `/rj rw boss`, the addon sends compact grouped raid warnings first, then whispers each real player their assignment afterward. If you are not raid leader or assistant, it falls back to raid chat instead.
+When you use `Raid Warn` or `/rj rw boss`, the addon sends compact grouped raid warnings first, then whispers each real player their assignment afterward.
 
 Bosses can define phase tabs. Lady Vashj is organized into `All`, `P1/P3`, `Phase 2`, and `Phase 3`, so the assignment table can focus on the jobs for one phase at a time.
 

@@ -47,7 +47,6 @@ local CLASS_DISPLAY = {
 local GetRaidSize
 local RefreshUI
 local UI
-local raidWarningFallbackNoticeShown = false
 
 local function Print(message)
     DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffRaidJobber|r: " .. tostring(message))
@@ -372,26 +371,19 @@ local function SendRaidWarning(message)
         return false
     end
 
-    local canCheckPermission = IsRaidLeader or IsRaidOfficer or UnitIsGroupLeader or UnitIsGroupAssistant
-    local canWarn = true
-
-    if canCheckPermission then
-        canWarn = (IsRaidLeader and IsRaidLeader())
+    if IsRaidLeader or IsRaidOfficer or UnitIsGroupLeader or UnitIsGroupAssistant then
+        local canWarn = (IsRaidLeader and IsRaidLeader())
             or (IsRaidOfficer and IsRaidOfficer())
             or (UnitIsGroupLeader and UnitIsGroupLeader("player"))
             or (UnitIsGroupAssistant and UnitIsGroupAssistant("player"))
-    end
 
-    if canWarn then
-        SendChatMessage(message, "RAID_WARNING", nil, nil)
-    else
-        SendChatMessage("[RJ] " .. message, "RAID", nil, nil)
-        if not raidWarningFallbackNoticeShown then
-            Print("You are not raid leader/assistant, so RaidJobber sent assignments to raid chat instead.")
-            raidWarningFallbackNoticeShown = true
+        if not canWarn then
+            Print("You need raid leader or assistant to send raid warnings.")
+            return false
         end
     end
 
+    SendChatMessage(message, "RAID_WARNING")
     return true
 end
 
@@ -399,8 +391,6 @@ local function SendRaidWarningLines(lines)
     if not lines or not lines[1] then
         return false
     end
-
-    raidWarningFallbackNoticeShown = false
 
     if not SendRaidWarning(lines[1]) then
         return false
