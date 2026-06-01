@@ -664,25 +664,6 @@ function RJ:AssignJob(bossName, playerName, jobText)
     end
 end
 
-function RJ:StoreAssignment(bossName, playerName, jobText)
-    EnsureDB()
-
-    local instanceKey = GetInstanceKey()
-    local bossKey = GetBossKey(bossName)
-    playerName = Trim(playerName)
-    jobText = Trim(jobText)
-
-    if playerName == "" or jobText == "" then
-        return false
-    end
-
-    RaidJobberDB.jobs[instanceKey] = RaidJobberDB.jobs[instanceKey] or {}
-    RaidJobberDB.jobs[instanceKey][bossKey] = RaidJobberDB.jobs[instanceKey][bossKey] or {}
-    RaidJobberDB.jobs[instanceKey][bossKey][playerName] = jobText
-
-    return true
-end
-
 function RJ:SetMemberOverride(playerName, label)
     EnsureDB()
 
@@ -735,16 +716,7 @@ function RJ:AnnounceJobs(bossName)
     local lines = BuildAnnouncementLines(bossKey, bossJobs)
 
     if SendRaidWarningLines(lines) then
-        Print("Announced " .. table.getn(lines) .. " assignment line(s) for " .. bossKey .. ".")
         WhisperAssignmentsAfterDelay(bossKey, bossJobs, table.getn(lines) * 0.45 + 0.5)
-    end
-end
-
-function RJ:TestRaidWarning()
-    EnsureDB()
-
-    if SendRaidWarning("RaidJobber raid warning test") then
-        Print("Raid warning test sent.")
     end
 end
 
@@ -1132,7 +1104,7 @@ local function SaveJobRow(row)
 
     if row.isCustom then
         RemoveAssignmentPlayer(UI.selectedBoss, row.originalPlayer)
-        RJ:StoreAssignment(UI.selectedBoss, playerName, jobText)
+        RJ:AssignJob(UI.selectedBoss, playerName, jobText)
         return
     end
 
@@ -1142,23 +1114,7 @@ local function SaveJobRow(row)
         playerName = "[" .. row.slot .. "]"
     end
 
-    RJ:StoreAssignment(UI.selectedBoss, playerName, "[" .. row.slot .. "] " .. jobText)
-end
-
-local function SaveVisibleJobRows()
-    if not UI or not UI.jobRows then
-        return 0
-    end
-
-    local saved = 0
-    for _, row in ipairs(UI.jobRows) do
-        if row:IsShown() then
-            SaveJobRow(row)
-            saved = saved + 1
-        end
-    end
-
-    return saved
+    RJ:AssignJob(UI.selectedBoss, playerName, "[" .. row.slot .. "] " .. jobText)
 end
 
 local function IsProfileSlotAssignment(playerName, jobText, profileJobs)
@@ -1427,9 +1383,7 @@ local function CreateRaidJobberUI()
     suggest:SetPoint("LEFT", load, "RIGHT", 6, 0)
 
     local announce = CreateButton(frame, "Raid Warn", 92, 24, function()
-        SaveVisibleJobRows()
         RJ:AnnounceJobs(UI.selectedBoss)
-        RefreshUI()
     end)
     announce:SetPoint("LEFT", suggest, "RIGHT", 6, 0)
 
@@ -1637,7 +1591,6 @@ local function ShowHelp()
     Print("/rj test on|off|raid - test mode and sample raid")
     Print("/rj show [boss] - show jobs for a boss, or General")
     Print("/rj rw [boss] - announce jobs in raid warning")
-    Print("/rj rwtest - send one test raid warning")
     Print("/rj assign boss = player: job - assign a player job")
     Print("/rj clear [boss] - clear jobs for a boss, or General")
 end
@@ -1705,8 +1658,6 @@ SlashCmdList.RAIDJOBBER = function(input)
         HandleAssign(input)
     elseif string.find(input, "^show") then
         RJ:ShowJobs(Trim(string.gsub(input, "^show", "")))
-    elseif input == "rwtest" then
-        RJ:TestRaidWarning()
     elseif string.find(input, "^rw") or string.find(input, "^announce") then
         input = string.gsub(input, "^rw", "")
         input = string.gsub(input, "^announce", "")

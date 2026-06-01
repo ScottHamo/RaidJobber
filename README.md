@@ -33,7 +33,6 @@ Then restart the game or run:
 /rj assign hydross = Scott: Frost resistance tank
 /rj show hydross
 /rj rw hydross
-/rj rwtest
 /rj test raid
 /rj test off
 /rj clear hydross
@@ -52,8 +51,6 @@ Open the in-game interface with:
 The window lets you choose a raid profile, choose a boss from that raid, scan the raid, load the selected raid profile, generate suggested assignments, edit each job row directly, announce assignments to raid warning, and clear the selected boss.
 
 When you use `Raid Warn` or `/rj rw boss`, the addon sends compact grouped raid warnings first, then whispers each real player their assignment afterward. If you are not raid leader or assistant, it falls back to raid chat instead.
-
-Use `/rj rwtest` in a raid to verify whether your client can send a real raid warning. If you are not raid leader or assistant, it will fall back to raid chat.
 
 Bosses can define phase tabs. Lady Vashj is organized into `All`, `P1/P3`, `Phase 2`, and `Phase 3`, so the assignment table can focus on the jobs for one phase at a time.
 
