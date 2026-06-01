@@ -863,10 +863,8 @@ end
 UI = {
     selectedProfile = "ssc",
     selectedBoss = "Hydross the Unstable",
-    selectedPhase = "All",
     jobLines = {},
     jobRows = {},
-    phaseButtons = {},
     raidLines = {},
 }
 
@@ -949,7 +947,6 @@ local function SelectProfile(profileKey)
     local firstBoss = RaidJobberProfiles[profileKey].bosses and RaidJobberProfiles[profileKey].bosses[1]
     if firstBoss then
         UI.selectedBoss = firstBoss.name
-        UI.selectedPhase = "All"
     end
 
     if UI.profileDropDown then
@@ -992,32 +989,6 @@ local function GetProfileBossForUI()
             return boss
         end
     end
-end
-
-local function GetBossPhases(boss)
-    local phases = {}
-    local seen = {}
-
-    for _, job in ipairs((boss and boss.jobs) or {}) do
-        if job.phase and not seen[job.phase] then
-            table.insert(phases, job.phase)
-            seen[job.phase] = true
-        end
-    end
-
-    return phases
-end
-
-local function BossHasPhases(boss)
-    return table.getn(GetBossPhases(boss)) > 1
-end
-
-local function JobMatchesSelectedPhase(job, boss)
-    if not BossHasPhases(boss) or UI.selectedPhase == "All" then
-        return true
-    end
-
-    return job.phase == UI.selectedPhase
 end
 
 local function GetSuggestedPlayerForJob(job)
@@ -1156,41 +1127,6 @@ local function CreateEditBox(parent, width)
     return editBox
 end
 
-local function RefreshPhaseTabs()
-    if not UI.phaseButtons then
-        return
-    end
-
-    local boss = GetProfileBossForUI()
-    local phases = GetBossPhases(boss)
-    local hasPhases = table.getn(phases) > 1
-    local labels = { "All" }
-
-    for _, phase in ipairs(phases) do
-        table.insert(labels, phase)
-    end
-
-    if not hasPhases then
-        UI.selectedPhase = "All"
-    end
-
-    for index, button in ipairs(UI.phaseButtons) do
-        local label = labels[index]
-        if hasPhases and label then
-            button.phaseName = label
-            button:SetText(label)
-            button:Show()
-            if UI.selectedPhase == label then
-                button:Disable()
-            else
-                button:Enable()
-            end
-        else
-            button:Hide()
-        end
-    end
-end
-
 RefreshUI = function()
     if not UI.frame or not UI.frame:IsShown() then
         return
@@ -1210,14 +1146,7 @@ RefreshUI = function()
     UI.bossText:SetText("Boss: " .. bossKey)
 
     local profileBoss = GetProfileBossForUI()
-    RefreshPhaseTabs()
-
-    local jobs = {}
-    for _, job in ipairs((profileBoss and profileBoss.jobs) or {}) do
-        if JobMatchesSelectedPhase(job, profileBoss) then
-            table.insert(jobs, job)
-        end
-    end
+    local jobs = (profileBoss and profileBoss.jobs) or {}
     local rowIndex = 1
     for index, rowFrame in ipairs(UI.jobRows) do
         local job = jobs[index]
@@ -1235,7 +1164,7 @@ RefreshUI = function()
         end
     end
 
-    if UI.selectedPhase == "All" and bossJobs and next(bossJobs) then
+    if bossJobs and next(bossJobs) then
         for _, playerName in ipairs(GetSortedJobNames(bossJobs)) do
             local jobText = bossJobs[playerName]
             if rowIndex <= table.getn(UI.jobRows) and not IsProfileSlotAssignment(playerName, jobText, jobs) then
@@ -1349,7 +1278,6 @@ local function CreateRaidJobberUI()
             info.text = selectedName
             info.func = function()
                 UI.selectedBoss = selectedName
-                UI.selectedPhase = "All"
                 UIDropDownMenu_SetText(bossDropDown, selectedName)
                 RefreshUI()
             end
@@ -1392,30 +1320,52 @@ local function CreateRaidJobberUI()
     end)
     testOff:SetPoint("LEFT", testRaid, "RIGHT", 6, 0)
 
-    local jobsTitle = CreateLabel(frame, "Assignments", nil)
-    jobsTitle:SetPoint("TOPLEFT", 24, -150)
+    local roleLabel = CreateLabel(frame, "Role hint", "small")
+    roleLabel:SetPoint("TOPLEFT", 24, -148)
 
-    for index = 1, 5 do
-        local phaseButton = CreateButton(frame, "", 66, 20, function(self)
-            UI.selectedPhase = self.phaseName or "All"
-            RefreshUI()
-        end)
-        phaseButton:SetPoint("TOPLEFT", 108 + ((index - 1) * 70), -146)
-        phaseButton:Hide()
-        UI.phaseButtons[index] = phaseButton
-    end
+    UI.rolePlayer = CreateEditBox(frame, 110)
+    UI.rolePlayer:SetPoint("TOPLEFT", 82, -142)
+    UI.rolePlayer:SetText("Player")
+
+    UI.roleText = CreateEditBox(frame, 150)
+    UI.roleText:SetPoint("LEFT", UI.rolePlayer, "RIGHT", 14, 0)
+    UI.roleText:SetText("Holy Paladin")
+
+    local saveRole = CreateButton(frame, "Save Role", 84, 24, function()
+        RJ:SetMemberOverride(UI.rolePlayer:GetText(), UI.roleText:GetText())
+    end)
+    saveRole:SetPoint("LEFT", UI.roleText, "RIGHT", 8, 0)
+
+    local assignLabel = CreateLabel(frame, "Quick add", "small")
+    assignLabel:SetPoint("TOPLEFT", 24, -176)
+
+    UI.assignPlayer = CreateEditBox(frame, 110)
+    UI.assignPlayer:SetPoint("TOPLEFT", 82, -170)
+    UI.assignPlayer:SetText("Player")
+
+    UI.assignText = CreateEditBox(frame, 220)
+    UI.assignText:SetPoint("LEFT", UI.assignPlayer, "RIGHT", 14, 0)
+    UI.assignText:SetText("Tank healer")
+
+    local assign = CreateButton(frame, "Add", 52, 24, function()
+        RJ:AssignJob(UI.selectedBoss, UI.assignPlayer:GetText(), UI.assignText:GetText())
+    end)
+    assign:SetPoint("LEFT", UI.assignText, "RIGHT", 8, 0)
+
+    local jobsTitle = CreateLabel(frame, "Assignments", nil)
+    jobsTitle:SetPoint("TOPLEFT", 24, -214)
 
     local playerHeader = CreateLabel(frame, "Player", "small")
-    playerHeader:SetPoint("TOPLEFT", 130, -174)
+    playerHeader:SetPoint("TOPLEFT", 130, -216)
 
     local jobHeader = CreateLabel(frame, "Job", "small")
-    jobHeader:SetPoint("TOPLEFT", 242, -174)
+    jobHeader:SetPoint("TOPLEFT", 242, -216)
 
     for index = 1, 22 do
         local row = CreateFrame("Frame", nil, frame)
         row:SetWidth(430)
         row:SetHeight(21)
-        row:SetPoint("TOPLEFT", 28, -192 - ((index - 1) * 21))
+        row:SetPoint("TOPLEFT", 28, -234 - ((index - 1) * 21))
 
         row.slotText = CreateLabel(row, "", "small")
         row.slotText:SetWidth(92)
@@ -1439,13 +1389,13 @@ local function CreateRaidJobberUI()
     end
 
     local raidTitle = CreateLabel(frame, "Raid", nil)
-    raidTitle:SetPoint("TOPLEFT", 470, -150)
+    raidTitle:SetPoint("TOPLEFT", 470, -214)
 
     for index = 1, 24 do
         local line = CreateLabel(frame, "", "small")
         line:SetWidth(210)
         line:SetJustifyH("LEFT")
-        line:SetPoint("TOPLEFT", 474, -172 - ((index - 1) * 15))
+        line:SetPoint("TOPLEFT", 474, -236 - ((index - 1) * 15))
         UI.raidLines[index] = line
     end
 

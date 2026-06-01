@@ -48,11 +48,9 @@ Open the in-game interface with:
 /rj ui
 ```
 
-The window lets you choose a raid profile, choose a boss from that raid, scan the raid, load the selected raid profile, generate suggested assignments, edit each job row directly, announce assignments to raid warning, and clear the selected boss.
+The window lets you choose a raid profile, choose a boss from that raid, scan the raid, load the selected raid profile, generate suggested assignments, edit each job row directly, use Quick add for custom assignments, announce every assignment to raid warning, clear the selected boss, and save role/spec hints. Quick add entries appear in the main assignment table as `Custom` rows.
 
 When you use `Raid Warn` or `/rj rw boss`, the addon sends compact grouped raid warnings first, then whispers each real player their assignment afterward.
-
-Bosses can define phase tabs. Lady Vashj is organized into `All`, `P1/P3`, `Phase 2`, and `Phase 3`, so the assignment table can focus on the jobs for one phase at a time.
 
 The addon also creates a minimap button. Left-click it to open the interface, drag it to reposition it, or right-click it to hide it. Use `/rj minimap` to show it again, or `/rj minimap reset` to force it back to the default position.
 
