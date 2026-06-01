@@ -55,7 +55,7 @@ When you use `Raid Warn` or `/rj rw boss`, the addon sends compact grouped raid 
 
 Use `/rj rwtest` in a raid to verify whether your client can send a real raid warning. If you are not raid leader or assistant, it will fall back to raid chat.
 
-Bosses can define phase tabs. Lady Vashj is organized into `All`, `P1/P3`, `Phase 2`, and `Phase 3`, so the assignment table can focus on the jobs for one phase at a time.
+Bosses can define phase tabs. Lady Vashj is organized into `All`, `P1/P3`, `Phase 2`, and `Phase 3`, so the assignment table can focus on the jobs for one phase at a time. The `Raid Warn` button announces the currently visible tab; use `All` to announce everything.
 
 The addon also creates a minimap button. Left-click it to open the interface, drag it to reposition it, or right-click it to hide it. Use `/rj minimap` to show it again, or `/rj minimap reset` to force it back to the default position.
 

@@ -454,6 +454,31 @@ local function BuildAnnouncementLines(bossName, bossJobs)
     return lines
 end
 
+local function BuildAnnouncementLinesFromVisibleRows(bossName)
+    local bossJobs = {}
+
+    if not UI or not UI.jobRows then
+        return nil
+    end
+
+    for _, row in ipairs(UI.jobRows) do
+        if row:IsShown() then
+            local playerName = Trim(row.player:GetText())
+            local jobText = Trim(row.job:GetText())
+
+            if playerName ~= "" and jobText ~= "" then
+                bossJobs[playerName] = jobText
+            end
+        end
+    end
+
+    if not next(bossJobs) then
+        return nil
+    end
+
+    return BuildAnnouncementLines(bossName, bossJobs), bossJobs
+end
+
 local TEST_RAID_MEMBERS = {
     { name = "Aurelion", class = "PALADIN", role = "Healer", override = "Holy Paladin", guild = "RaidJobber Guild", subgroup = 1 },
     { name = "Brightward", class = "PALADIN", role = "Healer", override = "Holy Paladin", guild = "RaidJobber Guild", subgroup = 1 },
@@ -737,6 +762,23 @@ function RJ:AnnounceJobs(bossName)
     if SendRaidWarningLines(lines) then
         Print("Announced " .. table.getn(lines) .. " assignment line(s) for " .. bossKey .. ".")
         WhisperAssignmentsAfterDelay(bossKey, bossJobs, table.getn(lines) * 0.45 + 0.5)
+    end
+end
+
+function RJ:AnnounceVisibleJobs(bossName)
+    EnsureDB()
+
+    local bossKey = GetBossKey(bossName)
+    local lines, visibleJobs = BuildAnnouncementLinesFromVisibleRows(bossKey)
+
+    if not lines then
+        RJ:AnnounceJobs(bossName)
+        return
+    end
+
+    if SendRaidWarningLines(lines) then
+        Print("Announced " .. table.getn(lines) .. " visible assignment line(s) for " .. bossKey .. ".")
+        WhisperAssignmentsAfterDelay(bossKey, visibleJobs, table.getn(lines) * 0.45 + 0.5)
     end
 end
 
@@ -1427,8 +1469,7 @@ local function CreateRaidJobberUI()
     suggest:SetPoint("LEFT", load, "RIGHT", 6, 0)
 
     local announce = CreateButton(frame, "Raid Warn", 92, 24, function()
-        SaveVisibleJobRows()
-        RJ:AnnounceJobs(UI.selectedBoss)
+        RJ:AnnounceVisibleJobs(UI.selectedBoss)
         RefreshUI()
     end)
     announce:SetPoint("LEFT", suggest, "RIGHT", 6, 0)
