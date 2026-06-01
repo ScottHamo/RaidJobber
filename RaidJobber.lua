@@ -338,24 +338,6 @@ local function FindBestCandidate(job, raid, usedPlayers)
     end
 end
 
-local function SuggestGroupedJob(job, raid, usedPlayers)
-    local names = {}
-    local parts = {}
-
-    for _, memberJob in ipairs(job.members or {}) do
-        local playerName = FindBestCandidate(memberJob, raid, usedPlayers)
-        if playerName then
-            usedPlayers[playerName] = true
-            table.insert(names, playerName)
-            table.insert(parts, memberJob.label .. ": " .. playerName)
-        else
-            table.insert(parts, memberJob.label .. ": unassigned")
-        end
-    end
-
-    return table.concat(names, ", "), table.concat(parts, ", ")
-end
-
 local function SendRaidWarning(message)
     if RaidJobberDB and RaidJobberDB.testMode then
         Print("[TEST RW] " .. message)
@@ -452,31 +434,6 @@ local function BuildAnnouncementLines(bossName, bossJobs)
     end
 
     return lines
-end
-
-local function BuildAnnouncementLinesFromVisibleRows(bossName)
-    local bossJobs = {}
-
-    if not UI or not UI.jobRows then
-        return nil
-    end
-
-    for _, row in ipairs(UI.jobRows) do
-        if row:IsShown() then
-            local playerName = Trim(row.player:GetText())
-            local jobText = Trim(row.job:GetText())
-
-            if playerName ~= "" and jobText ~= "" then
-                bossJobs[playerName] = jobText
-            end
-        end
-    end
-
-    if not next(bossJobs) then
-        return nil
-    end
-
-    return BuildAnnouncementLines(bossName, bossJobs), bossJobs
 end
 
 local TEST_RAID_MEMBERS = {
@@ -765,31 +722,6 @@ function RJ:AnnounceJobs(bossName)
     end
 end
 
-function RJ:AnnounceVisibleJobs(bossName)
-    EnsureDB()
-
-    local bossKey = GetBossKey(bossName)
-    local lines, visibleJobs = BuildAnnouncementLinesFromVisibleRows(bossKey)
-
-    if not lines then
-        RJ:AnnounceJobs(bossName)
-        return
-    end
-
-    if SendRaidWarningLines(lines) then
-        Print("Announced " .. table.getn(lines) .. " visible assignment line(s) for " .. bossKey .. ".")
-        WhisperAssignmentsAfterDelay(bossKey, visibleJobs, table.getn(lines) * 0.45 + 0.5)
-    end
-end
-
-function RJ:TestRaidWarning()
-    EnsureDB()
-
-    if SendRaidWarning("RaidJobber raid warning test") then
-        Print("Raid warning test sent.")
-    end
-end
-
 function RJ:LoadProfile(profileName)
     EnsureDB()
 
@@ -843,26 +775,19 @@ function RJ:SuggestJobs(bossName)
     RaidJobberDB.jobs[instanceKey][bossKey] = {}
 
     for _, job in ipairs(profileBoss.jobs or {}) do
-        if job.members then
-            local groupNames, groupText = SuggestGroupedJob(job, raid, usedPlayers)
-            local key = groupNames ~= "" and groupNames or ("[" .. job.slot .. "]")
-            RaidJobberDB.jobs[instanceKey][bossKey][key] = "[" .. job.slot .. "] " .. groupText
-            Print(job.slot .. " -> " .. groupText)
-        else
-            local playerName
-            if string.lower(job.role or "") ~= "all" then
-                playerName = FindBestCandidate(job, raid, usedPlayers)
-            end
-            local key = playerName or ("[" .. job.slot .. "]")
+        local playerName
+        if string.lower(job.role or "") ~= "all" then
+            playerName = FindBestCandidate(job, raid, usedPlayers)
+        end
+        local key = playerName or ("[" .. job.slot .. "]")
 
-            if playerName then
-                usedPlayers[playerName] = true
-                RaidJobberDB.jobs[instanceKey][bossKey][key] = "[" .. job.slot .. "] " .. job.text
-                Print(job.slot .. " -> " .. playerName .. " (" .. GetMemberLabel(playerName, raid.members[playerName]) .. ")")
-            else
-                RaidJobberDB.jobs[instanceKey][bossKey][key] = job.role .. ": " .. job.text
-                Print(job.slot .. " -> no candidate found")
-            end
+        if playerName then
+            usedPlayers[playerName] = true
+            RaidJobberDB.jobs[instanceKey][bossKey][key] = "[" .. job.slot .. "] " .. job.text
+            Print(job.slot .. " -> " .. playerName .. " (" .. GetMemberLabel(playerName, raid.members[playerName]) .. ")")
+        else
+            RaidJobberDB.jobs[instanceKey][bossKey][key] = job.role .. ": " .. job.text
+            Print(job.slot .. " -> no candidate found")
         end
     end
 
@@ -943,10 +868,8 @@ end
 UI = {
     selectedProfile = "ssc",
     selectedBoss = "Hydross the Unstable",
-    selectedPhase = "All",
     jobLines = {},
     jobRows = {},
-    phaseButtons = {},
     raidLines = {},
 }
 
@@ -1029,7 +952,6 @@ local function SelectProfile(profileKey)
     local firstBoss = RaidJobberProfiles[profileKey].bosses and RaidJobberProfiles[profileKey].bosses[1]
     if firstBoss then
         UI.selectedBoss = firstBoss.name
-        UI.selectedPhase = "All"
     end
 
     if UI.profileDropDown then
@@ -1072,32 +994,6 @@ local function GetProfileBossForUI()
             return boss
         end
     end
-end
-
-local function GetBossPhases(boss)
-    local phases = {}
-    local seen = {}
-
-    for _, job in ipairs((boss and boss.jobs) or {}) do
-        if job.phase and not seen[job.phase] then
-            table.insert(phases, job.phase)
-            seen[job.phase] = true
-        end
-    end
-
-    return phases
-end
-
-local function BossHasPhases(boss)
-    return table.getn(GetBossPhases(boss)) > 1
-end
-
-local function JobMatchesSelectedPhase(job, boss)
-    if not BossHasPhases(boss) or UI.selectedPhase == "All" then
-        return true
-    end
-
-    return job.phase == UI.selectedPhase
 end
 
 local function GetSuggestedPlayerForJob(job)
@@ -1187,22 +1083,6 @@ local function SaveJobRow(row)
     RJ:StoreAssignment(UI.selectedBoss, playerName, "[" .. row.slot .. "] " .. jobText)
 end
 
-local function SaveVisibleJobRows()
-    if not UI or not UI.jobRows then
-        return 0
-    end
-
-    local saved = 0
-    for _, row in ipairs(UI.jobRows) do
-        if row:IsShown() then
-            SaveJobRow(row)
-            saved = saved + 1
-        end
-    end
-
-    return saved
-end
-
 local function IsProfileSlotAssignment(playerName, jobText, profileJobs)
     for _, job in ipairs(profileJobs or {}) do
         local placeholderKey = "[" .. job.slot .. "]"
@@ -1252,41 +1132,6 @@ local function CreateEditBox(parent, width)
     return editBox
 end
 
-local function RefreshPhaseTabs()
-    if not UI.phaseButtons then
-        return
-    end
-
-    local boss = GetProfileBossForUI()
-    local phases = GetBossPhases(boss)
-    local hasPhases = table.getn(phases) > 1
-    local labels = { "All" }
-
-    for _, phase in ipairs(phases) do
-        table.insert(labels, phase)
-    end
-
-    if not hasPhases then
-        UI.selectedPhase = "All"
-    end
-
-    for index, button in ipairs(UI.phaseButtons) do
-        local label = labels[index]
-        if hasPhases and label then
-            button.phaseName = label
-            button:SetText(label)
-            button:Show()
-            if UI.selectedPhase == label then
-                button:Disable()
-            else
-                button:Enable()
-            end
-        else
-            button:Hide()
-        end
-    end
-end
-
 RefreshUI = function()
     if not UI.frame or not UI.frame:IsShown() then
         return
@@ -1306,14 +1151,7 @@ RefreshUI = function()
     UI.bossText:SetText("Boss: " .. bossKey)
 
     local profileBoss = GetProfileBossForUI()
-    RefreshPhaseTabs()
-
-    local jobs = {}
-    for _, job in ipairs((profileBoss and profileBoss.jobs) or {}) do
-        if JobMatchesSelectedPhase(job, profileBoss) then
-            table.insert(jobs, job)
-        end
-    end
+    local jobs = (profileBoss and profileBoss.jobs) or {}
     local rowIndex = 1
     for index, rowFrame in ipairs(UI.jobRows) do
         local job = jobs[index]
@@ -1331,7 +1169,7 @@ RefreshUI = function()
         end
     end
 
-    if UI.selectedPhase == "All" and bossJobs and next(bossJobs) then
+    if bossJobs and next(bossJobs) then
         for _, playerName in ipairs(GetSortedJobNames(bossJobs)) do
             local jobText = bossJobs[playerName]
             if rowIndex <= table.getn(UI.jobRows) and not IsProfileSlotAssignment(playerName, jobText, jobs) then
@@ -1442,10 +1280,9 @@ local function CreateRaidJobberUI()
         for _, bossName in ipairs(GetProfileBossNames()) do
             local selectedName = bossName
             local info = UIDropDownMenu_CreateInfo()
-            info.text = selectedName
+                info.text = selectedName
             info.func = function()
                 UI.selectedBoss = selectedName
-                UI.selectedPhase = "All"
                 UIDropDownMenu_SetText(bossDropDown, selectedName)
                 RefreshUI()
             end
@@ -1469,7 +1306,7 @@ local function CreateRaidJobberUI()
     suggest:SetPoint("LEFT", load, "RIGHT", 6, 0)
 
     local announce = CreateButton(frame, "Raid Warn", 92, 24, function()
-        RJ:AnnounceVisibleJobs(UI.selectedBoss)
+        RJ:AnnounceJobs(UI.selectedBoss)
         RefreshUI()
     end)
     announce:SetPoint("LEFT", suggest, "RIGHT", 6, 0)
@@ -1489,30 +1326,52 @@ local function CreateRaidJobberUI()
     end)
     testOff:SetPoint("LEFT", testRaid, "RIGHT", 6, 0)
 
-    local jobsTitle = CreateLabel(frame, "Assignments", nil)
-    jobsTitle:SetPoint("TOPLEFT", 24, -150)
+    local roleLabel = CreateLabel(frame, "Role hint", "small")
+    roleLabel:SetPoint("TOPLEFT", 24, -148)
 
-    for index = 1, 5 do
-        local phaseButton = CreateButton(frame, "", 66, 20, function(self)
-            UI.selectedPhase = self.phaseName or "All"
-            RefreshUI()
-        end)
-        phaseButton:SetPoint("TOPLEFT", 108 + ((index - 1) * 70), -146)
-        phaseButton:Hide()
-        UI.phaseButtons[index] = phaseButton
-    end
+    UI.rolePlayer = CreateEditBox(frame, 110)
+    UI.rolePlayer:SetPoint("TOPLEFT", 82, -142)
+    UI.rolePlayer:SetText("Player")
+
+    UI.roleText = CreateEditBox(frame, 150)
+    UI.roleText:SetPoint("LEFT", UI.rolePlayer, "RIGHT", 14, 0)
+    UI.roleText:SetText("Holy Paladin")
+
+    local saveRole = CreateButton(frame, "Save Role", 84, 24, function()
+        RJ:SetMemberOverride(UI.rolePlayer:GetText(), UI.roleText:GetText())
+    end)
+    saveRole:SetPoint("LEFT", UI.roleText, "RIGHT", 8, 0)
+
+    local assignLabel = CreateLabel(frame, "Quick add", "small")
+    assignLabel:SetPoint("TOPLEFT", 24, -176)
+
+    UI.assignPlayer = CreateEditBox(frame, 110)
+    UI.assignPlayer:SetPoint("TOPLEFT", 82, -170)
+    UI.assignPlayer:SetText("Player")
+
+    UI.assignText = CreateEditBox(frame, 220)
+    UI.assignText:SetPoint("LEFT", UI.assignPlayer, "RIGHT", 14, 0)
+    UI.assignText:SetText("Tank healer")
+
+    local assign = CreateButton(frame, "Add", 52, 24, function()
+        RJ:AssignJob(UI.selectedBoss, UI.assignPlayer:GetText(), UI.assignText:GetText())
+    end)
+    assign:SetPoint("LEFT", UI.assignText, "RIGHT", 8, 0)
+
+    local jobsTitle = CreateLabel(frame, "Assignments", nil)
+    jobsTitle:SetPoint("TOPLEFT", 24, -214)
 
     local playerHeader = CreateLabel(frame, "Player", "small")
-    playerHeader:SetPoint("TOPLEFT", 130, -174)
+    playerHeader:SetPoint("TOPLEFT", 130, -216)
 
     local jobHeader = CreateLabel(frame, "Job", "small")
-    jobHeader:SetPoint("TOPLEFT", 242, -174)
+    jobHeader:SetPoint("TOPLEFT", 242, -216)
 
     for index = 1, 22 do
         local row = CreateFrame("Frame", nil, frame)
         row:SetWidth(430)
         row:SetHeight(21)
-        row:SetPoint("TOPLEFT", 28, -192 - ((index - 1) * 21))
+        row:SetPoint("TOPLEFT", 28, -234 - ((index - 1) * 21))
 
         row.slotText = CreateLabel(row, "", "small")
         row.slotText:SetWidth(92)
@@ -1536,13 +1395,13 @@ local function CreateRaidJobberUI()
     end
 
     local raidTitle = CreateLabel(frame, "Raid", nil)
-    raidTitle:SetPoint("TOPLEFT", 470, -150)
+    raidTitle:SetPoint("TOPLEFT", 470, -214)
 
     for index = 1, 24 do
         local line = CreateLabel(frame, "", "small")
         line:SetWidth(210)
         line:SetJustifyH("LEFT")
-        line:SetPoint("TOPLEFT", 474, -172 - ((index - 1) * 15))
+        line:SetPoint("TOPLEFT", 474, -236 - ((index - 1) * 15))
         UI.raidLines[index] = line
     end
 
@@ -1678,7 +1537,6 @@ local function ShowHelp()
     Print("/rj test on|off|raid - test mode and sample raid")
     Print("/rj show [boss] - show jobs for a boss, or General")
     Print("/rj rw [boss] - announce jobs in raid warning")
-    Print("/rj rwtest - send one test raid warning")
     Print("/rj assign boss = player: job - assign a player job")
     Print("/rj clear [boss] - clear jobs for a boss, or General")
 end
@@ -1746,8 +1604,6 @@ SlashCmdList.RAIDJOBBER = function(input)
         HandleAssign(input)
     elseif string.find(input, "^show") then
         RJ:ShowJobs(Trim(string.gsub(input, "^show", "")))
-    elseif input == "rwtest" then
-        RJ:TestRaidWarning()
     elseif string.find(input, "^rw") or string.find(input, "^announce") then
         input = string.gsub(input, "^rw", "")
         input = string.gsub(input, "^announce", "")
