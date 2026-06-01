@@ -181,6 +181,10 @@ local function GetMemberLabel(playerName, member)
     return (member.role or "Unknown") .. " " .. (CLASS_DISPLAY[member.class] or member.class or "")
 end
 
+local function StripSlotPrefix(jobText)
+    return string.gsub(jobText or "", "^%[[^%]]+%]%s*", "")
+end
+
 local function GetPlayerGuildName()
     local guildName = GetGuildInfo and GetGuildInfo("player")
     return guildName
@@ -264,6 +268,26 @@ local function ScoreCandidate(job, playerName, member, usedPlayers)
         end
     end
 
+    if TextHasAny(jobText, { "righteous fury" }) then
+        if class == "PALADIN" and TextHasAny(label, { "holy", "healer" }) then
+            score = score + 100
+        elseif class == "PALADIN" then
+            score = score + 40
+        end
+    end
+
+    if TextHasAny(jobText, { "hunter preferred" }) and class == "HUNTER" then
+        score = score + 70
+    end
+
+    if TextHasAny(jobText, { "spore bat", "spore bats" }) then
+        if class == "HUNTER" then
+            score = score + 100
+        elseif class == "MAGE" or class == "WARLOCK" then
+            score = score + 20
+        end
+    end
+
     if TextHasAny(jobText, { "warlock tank" }) and class == "WARLOCK" then
         score = score + 80
     end
@@ -276,7 +300,17 @@ local function ScoreCandidate(job, playerName, member, usedPlayers)
         score = score + 45
     end
 
-    if TextHasAny(jobText, { "kite", "slow", "strider" }) and (class == "HUNTER" or class == "MAGE" or class == "WARLOCK") then
+    if TextHasAny(jobText, { "strider" }) and TextHasAny(jobText, { "kite" }) then
+        if class == "MAGE" then
+            score = score + 90
+        elseif class == "SHAMAN" then
+            score = score + 70
+        elseif class == "HUNTER" then
+            score = score + 50
+        elseif class == "WARLOCK" then
+            score = score + 20
+        end
+    elseif TextHasAny(jobText, { "kite", "slow", "strider" }) and (class == "HUNTER" or class == "MAGE" or class == "WARLOCK" or class == "SHAMAN") then
         score = score + 40
     end
 
@@ -301,6 +335,24 @@ local function FindBestCandidate(job, raid, usedPlayers)
     if bestScore and bestScore > 0 then
         return bestName, bestScore
     end
+end
+
+local function SuggestGroupedJob(job, raid, usedPlayers)
+    local names = {}
+    local parts = {}
+
+    for _, memberJob in ipairs(job.members or {}) do
+        local playerName = FindBestCandidate(memberJob, raid, usedPlayers)
+        if playerName then
+            usedPlayers[playerName] = true
+            table.insert(names, playerName)
+            table.insert(parts, memberJob.label .. ": " .. playerName)
+        else
+            table.insert(parts, memberJob.label .. ": unassigned")
+        end
+    end
+
+    return table.concat(names, ", "), table.concat(parts, ", ")
 end
 
 local function SendRaidWarning(message)
@@ -360,6 +412,38 @@ local function SendRaidWarningLines(lines)
     return true
 end
 
+local function BuildAnnouncementLines(bossName, bossJobs)
+    local lines = {
+        "RaidJobber: " .. bossName,
+    }
+    local currentLine = ""
+    local maxLength = 230
+
+    for _, playerName in ipairs(GetSortedJobNames(bossJobs)) do
+        local jobText = StripSlotPrefix(bossJobs[playerName])
+        local entry = playerName .. ": " .. jobText
+
+        if string.len(entry) > maxLength then
+            entry = string.sub(entry, 1, maxLength - 3) .. "..."
+        end
+
+        if currentLine == "" then
+            currentLine = entry
+        elseif string.len(currentLine) + string.len(entry) + 3 <= maxLength then
+            currentLine = currentLine .. " | " .. entry
+        else
+            table.insert(lines, currentLine)
+            currentLine = entry
+        end
+    end
+
+    if currentLine ~= "" then
+        table.insert(lines, currentLine)
+    end
+
+    return lines
+end
+
 local TEST_RAID_MEMBERS = {
     { name = "Aurelion", class = "PALADIN", role = "Healer", override = "Holy Paladin", guild = "RaidJobber Guild", subgroup = 1 },
     { name = "Brightward", class = "PALADIN", role = "Healer", override = "Holy Paladin", guild = "RaidJobber Guild", subgroup = 1 },
@@ -406,6 +490,19 @@ local function WhisperAssignment(playerName, bossName, jobText)
     SendChatMessage("RaidJobber - " .. bossName .. ": " .. jobText, "WHISPER", nil, playerName)
 end
 
+local function GetWhisperRecipients(playerName)
+    local recipients = {}
+
+    for name in string.gmatch(playerName or "", "([^,]+)") do
+        name = Trim(name)
+        if IsWhisperableAssignee(name) then
+            table.insert(recipients, name)
+        end
+    end
+
+    return recipients
+end
+
 local function WhisperAssignmentsAfterDelay(bossName, bossJobs, delaySeconds)
     if not bossJobs or not next(bossJobs) then
         return
@@ -414,16 +511,16 @@ local function WhisperAssignmentsAfterDelay(bossName, bossJobs, delaySeconds)
     local whisperIndex = 0
     for _, playerName in ipairs(GetSortedJobNames(bossJobs)) do
         local jobText = bossJobs[playerName]
-        if IsWhisperableAssignee(playerName) then
+        for _, recipient in ipairs(GetWhisperRecipients(playerName)) do
             whisperIndex = whisperIndex + 1
             local function whisperLine()
-                WhisperAssignment(playerName, bossName, jobText)
+                WhisperAssignment(recipient, bossName, jobText)
             end
 
             if C_Timer and C_Timer.After then
                 C_Timer.After(delaySeconds + ((whisperIndex - 1) * 0.35), whisperLine)
             else
-                WhisperAssignment(playerName, bossName, jobText)
+                WhisperAssignment(recipient, bossName, jobText)
             end
         end
     end
@@ -606,17 +703,7 @@ function RJ:AnnounceJobs(bossName)
         return
     end
 
-    local lines = {
-        "RaidJobber assignments: " .. bossKey,
-    }
-
-    for _, playerName in ipairs(GetSortedJobNames(bossJobs)) do
-        local entry = playerName .. ": " .. bossJobs[playerName]
-        if string.len(entry) > 240 then
-            entry = string.sub(entry, 1, 237) .. "..."
-        end
-        table.insert(lines, entry)
-    end
+    local lines = BuildAnnouncementLines(bossKey, bossJobs)
 
     if SendRaidWarningLines(lines) then
         WhisperAssignmentsAfterDelay(bossKey, bossJobs, table.getn(lines) * 0.45 + 0.5)
@@ -676,19 +763,26 @@ function RJ:SuggestJobs(bossName)
     RaidJobberDB.jobs[instanceKey][bossKey] = {}
 
     for _, job in ipairs(profileBoss.jobs or {}) do
-        local playerName
-        if string.lower(job.role or "") ~= "all" then
-            playerName = FindBestCandidate(job, raid, usedPlayers)
-        end
-        local key = playerName or ("[" .. job.slot .. "]")
-
-        if playerName then
-            usedPlayers[playerName] = true
-            RaidJobberDB.jobs[instanceKey][bossKey][key] = "[" .. job.slot .. "] " .. job.text
-            Print(job.slot .. " -> " .. playerName .. " (" .. GetMemberLabel(playerName, raid.members[playerName]) .. ")")
+        if job.members then
+            local groupNames, groupText = SuggestGroupedJob(job, raid, usedPlayers)
+            local key = groupNames ~= "" and groupNames or ("[" .. job.slot .. "]")
+            RaidJobberDB.jobs[instanceKey][bossKey][key] = "[" .. job.slot .. "] " .. groupText
+            Print(job.slot .. " -> " .. groupText)
         else
-            RaidJobberDB.jobs[instanceKey][bossKey][key] = job.role .. ": " .. job.text
-            Print(job.slot .. " -> no candidate found")
+            local playerName
+            if string.lower(job.role or "") ~= "all" then
+                playerName = FindBestCandidate(job, raid, usedPlayers)
+            end
+            local key = playerName or ("[" .. job.slot .. "]")
+
+            if playerName then
+                usedPlayers[playerName] = true
+                RaidJobberDB.jobs[instanceKey][bossKey][key] = "[" .. job.slot .. "] " .. job.text
+                Print(job.slot .. " -> " .. playerName .. " (" .. GetMemberLabel(playerName, raid.members[playerName]) .. ")")
+            else
+                RaidJobberDB.jobs[instanceKey][bossKey][key] = job.role .. ": " .. job.text
+                Print(job.slot .. " -> no candidate found")
+            end
         end
     end
 
@@ -917,8 +1011,20 @@ local function GetSuggestedPlayerForJob(job)
     return ""
 end
 
-local function StripSlotPrefix(jobText)
-    return string.gsub(jobText or "", "^%[[^%]]+%]%s*", "")
+local function GetSuggestedTextForJob(job)
+    local bossJobs = GetBossJobsForUI()
+    if not bossJobs then
+        return job.text
+    end
+
+    local prefix = "[" .. job.slot .. "] "
+    for _, jobText in pairs(bossJobs) do
+        if string.sub(jobText, 1, string.len(prefix)) == prefix then
+            return StripSlotPrefix(jobText)
+        end
+    end
+
+    return job.text
 end
 
 local function RemoveSlotAssignment(bossName, slot)
@@ -1051,7 +1157,7 @@ RefreshUI = function()
             rowFrame.slot = job.slot
             rowFrame.slotText:SetText(job.slot)
             rowFrame.player:SetText(GetSuggestedPlayerForJob(job))
-            rowFrame.job:SetText(job.text)
+            rowFrame.job:SetText(GetSuggestedTextForJob(job))
             rowFrame:Show()
         else
             rowFrame:Hide()
@@ -1255,11 +1361,11 @@ local function CreateRaidJobberUI()
     local jobHeader = CreateLabel(frame, "Job", "small")
     jobHeader:SetPoint("TOPLEFT", 242, -216)
 
-    for index = 1, 18 do
+    for index = 1, 22 do
         local row = CreateFrame("Frame", nil, frame)
         row:SetWidth(430)
-        row:SetHeight(24)
-        row:SetPoint("TOPLEFT", 28, -234 - ((index - 1) * 24))
+        row:SetHeight(21)
+        row:SetPoint("TOPLEFT", 28, -234 - ((index - 1) * 21))
 
         row.slotText = CreateLabel(row, "", "small")
         row.slotText:SetWidth(92)
@@ -1267,12 +1373,14 @@ local function CreateRaidJobberUI()
         row.slotText:SetPoint("LEFT", 0, 0)
 
         row.player = CreateEditBox(row, 96)
+        row.player:SetHeight(20)
         row.player:SetPoint("LEFT", 100, 0)
 
         row.job = CreateEditBox(row, 178)
+        row.job:SetHeight(20)
         row.job:SetPoint("LEFT", row.player, "RIGHT", 12, 0)
 
-        row.save = CreateButton(row, "Save", 48, 22, function()
+        row.save = CreateButton(row, "Save", 48, 20, function()
             SaveJobRow(row)
         end)
         row.save:SetPoint("LEFT", row.job, "RIGHT", 6, 0)

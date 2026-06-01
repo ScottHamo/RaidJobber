@@ -50,7 +50,7 @@ Open the in-game interface with:
 
 The window lets you choose a raid profile, choose a boss from that raid, scan the raid, load the selected raid profile, generate suggested assignments, edit each job row directly, use Quick add for custom assignments, announce every assignment to raid warning, clear the selected boss, and save role/spec hints. Quick add entries appear in the main assignment table as `Custom` rows.
 
-When you use `Raid Warn` or `/rj rw boss`, the addon sends all raid warnings first, then whispers each real player their assignment afterward.
+When you use `Raid Warn` or `/rj rw boss`, the addon sends compact grouped raid warnings first, then whispers each real player their assignment afterward.
 
 The addon also creates a minimap button. Left-click it to open the interface, drag it to reposition it, or right-click it to hide it. Use `/rj minimap` to show it again, or `/rj minimap reset` to force it back to the default position.
 
@@ -73,6 +73,8 @@ Use the raid dropdown in `/rj ui` to switch profiles without typing commands. Th
 Run `/rj scan`, optionally add role/spec hints like `/rj role Playername = Holy Paladin`, then run `/rj suggest hydross` to auto-fill that boss from the scanned raid.
 
 The suggestion engine prefers sensible candidates for common raid jobs. For example, Holy Paladins are weighted heavily for tank-healing jobs, Hunters for Misdirection jobs, Warlocks for ranged tanking jobs, melee with interrupts for interrupt jobs, and ranged control classes for kiting/slow jobs. It also gives a small preference to raiders from your own guild; same-guild raiders are marked with `*` in the UI raid list.
+
+Lady Vashj has a custom assignment profile with four numbered area rows. Each area row groups one melee, one healer, and one hunter-preferred ranged DPS together, for example `Melee: Player1, Healer: Player2, Ranged: Player3`. It also assigns a Holy Paladin to the middle with Righteous Fury, hunters to Phase 3 spore bats, and a strider kiter with preference Mage, then Shaman, then Hunter.
 
 ## Test Mode
 
